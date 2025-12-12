@@ -154,7 +154,7 @@ class TestFavorites(unittest.TestCase):
             "itemType": "stock",
             "itemName": "Explicit Test Stock"
         }
-        response = self.client.post('/api/favorites/add', json=payload)
+        response = self.client.post('/api/favorites/rpc/add', json=payload)
         data = response.get_json()
         
         self.assertEqual(response.status_code, 200)
@@ -181,7 +181,7 @@ class TestFavorites(unittest.TestCase):
             "itemId": self.stock_id,
             "itemType": "stock"
         }
-        response = self.client.post('/api/favorites/remove', json=payload)
+        response = self.client.post('/api/favorites/rpc/remove', json=payload)
         data = response.get_json()
         
         self.assertEqual(response.status_code, 200)

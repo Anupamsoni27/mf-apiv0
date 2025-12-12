@@ -414,12 +414,12 @@ def remove_favorite(item_id):
         return make_response(status="error", message=str(e))
 
 
-@app.route("/api/favorites/add", methods=["POST"])
+@app.route("/api/favorites/rpc/add", methods=["POST"])
 def add_favorite_rpc():
     return add_favorite()
 
 
-@app.route("/api/favorites/remove", methods=["POST"])
+@app.route("/api/favorites/rpc/remove", methods=["POST"])
 def remove_favorite_rpc():
     try:
         data = request.get_json()
