@@ -414,6 +414,36 @@ def remove_favorite(item_id):
         return make_response(status="error", message=str(e))
 
 
+@app.route("/api/favorites/add", methods=["POST"])
+def add_favorite_rpc():
+    return add_favorite()
+
+
+@app.route("/api/favorites/remove", methods=["POST"])
+def remove_favorite_rpc():
+    try:
+        data = request.get_json()
+        user_id = data.get("userId")
+        item_id = data.get("itemId")
+        item_type = data.get("itemType")
+
+        if not user_id or not item_id or not item_type:
+            return make_response(status="error", message="userId, itemId, itemType required"), 400
+
+        result = favorites.delete_one({
+            "userId": user_id,
+            "itemId": item_id,
+            "itemType": item_type
+        })
+
+        if result.deleted_count == 0:
+            return make_response(status="error", message="Favorite not found"), 404
+
+        return make_response(status="success", message="Removed")
+
+    except Exception as e:
+        return make_response(status="error", message=str(e))
+
 @app.route("/api/favorites/stocks", methods=["GET"])
 def get_favorite_stocks():
     try:

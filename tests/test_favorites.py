@@ -146,5 +146,52 @@ class TestFavorites(unittest.TestCase):
         self.assertEqual(stocks_list[0]['name'], "Test Stock Name")
         print("Get Favorites Generic Passed")
 
+    def test_add_favorite_explicit(self):
+        print("\nTesting Add Favorite Explicit (RPC)...")
+        payload = {
+            "userId": self.user_id,
+            "itemId": self.stock_id,
+            "itemType": "stock",
+            "itemName": "Explicit Test Stock"
+        }
+        response = self.client.post('/api/favorites/add', json=payload)
+        data = response.get_json()
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        
+        # Verify
+        fav = favorites.find_one({"userId": self.user_id, "itemId": self.stock_id})
+        self.assertIsNotNone(fav)
+        self.assertEqual(fav['itemName'], 'Explicit Test Stock')
+        print("Add Favorite Explicit Passed")
+
+    def test_remove_favorite_explicit(self):
+        print("\nTesting Remove Favorite Explicit (RPC)...")
+        # Add first
+        favorites.insert_one({
+            "userId": self.user_id,
+            "itemId": self.stock_id,
+            "itemType": "stock",
+            "itemName": "Explicit Remove Stock"
+        })
+        
+        payload = {
+            "userId": self.user_id,
+            "itemId": self.stock_id,
+            "itemType": "stock"
+        }
+        response = self.client.post('/api/favorites/remove', json=payload)
+        data = response.get_json()
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['message'], 'Removed')
+        
+        # Verify gone
+        fav = favorites.find_one({"userId": self.user_id, "itemId": self.stock_id})
+        self.assertIsNone(fav)
+        print("Remove Favorite Explicit Passed")
+
 if __name__ == '__main__':
     unittest.main()
