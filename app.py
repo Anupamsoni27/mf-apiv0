@@ -381,6 +381,7 @@ def add_favorite():
         }
 
         favorites.insert_one(fav)
+        fav["_id"] = str(fav["_id"])
         return make_response(status="success", message="Added", data=fav)
 
     except Exception as e:
