@@ -41,7 +41,8 @@ class TestFavorites(unittest.TestCase):
         payload = {
             "userId": self.user_id,
             "itemId": self.stock_id,
-            "itemType": "stock"
+            "itemType": "stock",
+            "itemName": "Test Stock"
         }
         response = self.client.post('/api/favorites', json=payload)
         data = response.get_json()
@@ -119,6 +120,31 @@ class TestFavorites(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(data['message'], 'Favorite not found')
         print("Remove Non-Existent Favorite Passed")
+
+    
+    def test_get_favorites_generic(self):
+        print("\nTesting Get Favorites Generic...")
+        # Add favorite with name
+        favorites.insert_one({
+            "userId": self.user_id,
+            "itemId": self.stock_id,
+            "itemType": "stock",
+            "itemName": "Test Stock Name"
+        })
+        
+        response = self.client.get(f'/api/favorites?userId={self.user_id}')
+        data = response.get_json()
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(data['status'], 'success')
+        self.assertIn('data', data)
+        self.assertIn('stocks', data['data'])
+        
+        stocks_list = data['data']['stocks']
+        self.assertEqual(len(stocks_list), 1)
+        self.assertEqual(stocks_list[0]['id'], self.stock_id)
+        self.assertEqual(stocks_list[0]['name'], "Test Stock Name")
+        print("Get Favorites Generic Passed")
 
 if __name__ == '__main__':
     unittest.main()

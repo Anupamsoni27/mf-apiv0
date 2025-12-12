@@ -338,9 +338,9 @@ def get_favorites():
 
         for f in favs:
             if f["itemType"] == "stock":
-                stocks_list.append(f["itemId"])
+                stocks_list.append({"id": f["itemId"], "name": f.get("itemName", "")})
             else:
-                funds_list.append(f["itemId"])
+                funds_list.append({"id": f["itemId"], "name": f.get("itemName", "")})
 
         return make_response(
             status="success",
@@ -360,6 +360,7 @@ def add_favorite():
         user_id = data.get("userId")
         item_id = data.get("itemId")
         item_type = data.get("itemType")
+        item_name = data.get("itemName", "")
 
         if not user_id or not item_id or not item_type:
             return make_response(status="error", message="userId, itemId, itemType required"), 400
@@ -377,6 +378,7 @@ def add_favorite():
             "userId": user_id,
             "itemId": item_id,
             "itemType": item_type,
+            "itemName": item_name,
             "createdAt": datetime.utcnow()
         }
 
