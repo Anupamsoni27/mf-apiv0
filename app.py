@@ -76,6 +76,60 @@ def make_response(status="success", message="", records=None, count=None, data=N
 
 
 # ============================================================================
+# HEALTH & MONITORING ENDPOINTS
+# ============================================================================
+
+@app.route("/health", methods=["GET"])
+def health_check():
+    """
+    Health check endpoint for Azure App Service and monitoring.
+    Returns 200 if app is running.
+    """
+    return jsonify({
+        "status": "healthy",
+        "service": "mf-api",
+        "version": "1.0.0"
+    }), 200
+
+
+@app.route("/ready", methods=["GET"])
+def readiness_check():
+    """
+    Readiness check - verifies database connectivity.
+    Returns 200 if app is ready to serve traffic.
+    """
+    try:
+        # Ping MongoDB to verify connection
+        client.admin.command('ping')
+        return jsonify({
+            "status": "ready",
+            "database": "connected"
+        }), 200
+    except Exception as e:
+        logger.error(f"Readiness check failed: {str(e)}")
+        return jsonify({
+            "status": "not ready",
+            "database": "disconnected",
+            "error": str(e)
+        }), 503
+
+
+@app.route("/", methods=["GET"])
+def root():
+    """Root endpoint with API information."""
+    return jsonify({
+        "service": "Mutual Fund API",
+        "version": "1.0.0",
+        "status": "running",
+        "endpoints": {
+            "health": "/health",
+            "ready": "/ready",
+            "docs": "See README.md"
+        }
+    }), 200
+
+
+# ============================================================================
 # USER ENDPOINTS (NO JWT)
 # ============================================================================
 
