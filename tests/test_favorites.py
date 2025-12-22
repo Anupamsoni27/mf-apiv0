@@ -5,6 +5,10 @@ import os
 from unittest.mock import MagicMock
 import mongomock
 
+# Set testing environment BEFORE importing app
+os.environ['FLASK_ENV'] = 'testing'
+os.environ['LOG_LEVEL'] = 'ERROR'
+
 # Add parent directory to path to import app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -21,6 +25,7 @@ except ImportError:
 
 # Import app - this will use the mocked MongoClient
 from app import app, favorites, stocks, fund_holdings, users
+
 
 class TestFavorites(unittest.TestCase):
     def setUp(self):

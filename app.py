@@ -1,18 +1,51 @@
+"""
+Mutual Fund API v0
+Flask-based REST API for mutual fund and stock tracking.
+"""
 from flask import Flask, jsonify, request
 from pymongo import MongoClient
 from bson import ObjectId
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, UTC
+import logging
+
+# Import configuration and validators
+from config import get_config
+from validators import (
+    CreateUserSchema, UpdateUserSchema,
+    AddFavoriteSchema, RemoveFavoriteSchema,
+    FundQuerySchema, StockQuerySchema,
+    validate_request_data, validate_query_params
+)
+
+# Load configuration
+app_config = get_config()
+app_config.init_logging()
+
+# Initialize logger
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": ["http://localhost:4200"]}}, supports_credentials=True)
+app.config.from_object(app_config)
+
+# Configure CORS
+CORS(
+    app,
+    resources={r"/*": {"origins": app_config.CORS_ORIGINS}},
+    supports_credentials=app_config.CORS_SUPPORTS_CREDENTIALS
+)
+
 
 # --------------------------
 # MONGO CONNECTION
 # --------------------------
 
-client = MongoClient("mongodb+srv://anupamsoni27:Mystuff8358%401@india-01.kwer3ek.mongodb.net/", tlsAllowInvalidCertificates=True)
-db = client["mf_data"]
+logger.info("Connecting to MongoDB...")
+client = MongoClient(
+    app_config.MONGODB_URI,
+    tlsAllowInvalidCertificates=app_config.MONGODB_TLS_ALLOW_INVALID_CERTIFICATES
+)
+db = client[app_config.MONGODB_DB_NAME]
 
 fund_holdings = db["fund_holdings_test"]
 stocks = db["stocks"]
@@ -21,8 +54,11 @@ favorites = db["favorites"]
 users = db["users"]
 
 # Indexes for favorites
+logger.info("Creating database indexes...")
 favorites.create_index([("userId", 1), ("itemType", 1)])
 favorites.create_index([("userId", 1), ("itemId", 1), ("itemType", 1)], unique=True)
+logger.info("Database connection established successfully")
+
 
 
 # --------------------------
@@ -45,53 +81,68 @@ def make_response(status="success", message="", records=None, count=None, data=N
 
 @app.route("/api/users", methods=["POST"])
 def create_user():
+    """Create a new user or return existing user if email already exists."""
     try:
         data = request.get_json()
-        name = data.get("name")
-        email = data.get("email")
-
-        if not name or not email:
-            return make_response(status="error", message="name and email required"), 400
+        
+        # Validate input
+        validated_data, errors = validate_request_data(CreateUserSchema, data)
+        if errors:
+            logger.warning(f"User creation validation failed: {errors}")
+            return make_response(status="error", message="Validation error", data=errors), 400
+        
+        name = validated_data["name"]
+        email = validated_data["email"]
 
         existing = users.find_one({"email": email})
         if existing:
             existing["_id"] = str(existing["_id"])
+            logger.info(f"User already exists: {email}")
             return make_response(status="success", message="User already exists", data=existing)
 
         new_user = {
             "name": name,
             "email": email,
-            "picture": data.get("picture"),
-            "phoneNumber": data.get("phoneNumber"),
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
+            "picture": validated_data.get("picture"),
+            "phoneNumber": validated_data.get("phoneNumber"),
+            "createdAt": datetime.now(UTC),
+            "updatedAt": datetime.now(UTC)
         }
 
         result = users.insert_one(new_user)
         new_user["_id"] = str(result.inserted_id)
-
+        
+        logger.info(f"User created successfully: {email}")
         return make_response(status="success", message="User created", data=new_user), 201
 
     except Exception as e:
-        return make_response(status="error", message=str(e))
+        logger.error(f"Error creating user: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
 
 
 @app.route("/api/users", methods=["GET"])
 def get_user_by_email():
+    """Get user by email address."""
     try:
         email = request.args.get("email")
         if not email:
+            logger.warning("Get user by email called without email parameter")
             return make_response(status="error", message="email required"), 400
 
         user = users.find_one({"email": email})
         if not user:
+            logger.info(f"User not found: {email}")
             return make_response(status="error", message="User not found"), 404
 
         user["_id"] = str(user["_id"])
+        logger.debug(f"User fetched: {email}")
         return make_response(status="success", message="User fetched", data=user)
 
     except Exception as e:
-        return make_response(status="error", message=str(e))
+        logger.error(f"Error getting user by email: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
 
 
 @app.route("/api/users/<user_id>", methods=["GET"])
@@ -110,22 +161,34 @@ def get_user_by_id(user_id):
 
 @app.route("/api/users/<user_id>", methods=["PUT"])
 def update_user(user_id):
+    """Update user information."""
     try:
         data = request.get_json()
-        data["updatedAt"] = datetime.utcnow()
+        
+        # Validate input
+        validated_data, errors = validate_request_data(UpdateUserSchema, data)
+        if errors:
+            logger.warning(f"User update validation failed for {user_id}: {errors}")
+            return make_response(status="error", message="Validation error", data=errors), 400
+        
+        validated_data["updatedAt"] = datetime.now(UTC)
 
-        result = users.update_one({"_id": ObjectId(user_id)}, {"$set": data})
+        result = users.update_one({"_id": ObjectId(user_id)}, {"$set": validated_data})
 
         if result.matched_count == 0:
+            logger.info(f"User not found for update: {user_id}")
             return make_response(status="error", message="User not found"), 404
 
         updated_user = users.find_one({"_id": ObjectId(user_id)})
         updated_user["_id"] = str(updated_user["_id"])
-
+        
+        logger.info(f"User updated successfully: {user_id}")
         return make_response(status="success", message="User updated", data=updated_user)
 
     except Exception as e:
-        return make_response(status="error", message=str(e))
+        logger.error(f"Error updating user {user_id}: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
 
 
 @app.route("/api/users/<user_id>", methods=["DELETE"])
@@ -280,20 +343,25 @@ def get_all_stocks():
 
 @app.route("/getStockInfo", methods=["GET"])
 def get_stock_info():
+    """Get detailed stock information by stock ID."""
     try:
         stock_id = request.args.get("stock_id")
         if not stock_id:
+            logger.warning("getStockInfo called without stock_id")
             return make_response(status="error", message="stock_id required"), 400
 
         stock = stocks.find_one({"_id": ObjectId(stock_id)})
         if not stock:
-            return make_response(status="error", message="Stock not found")
+            logger.info(f"Stock not found: {stock_id}")
+            return make_response(status="error", message="Stock not found"), 404
 
         stock["_id"] = str(stock["_id"])
+        logger.debug(f"Stock fetched: {stock_id}")
         return make_response(status="success", message="Stock fetched", records=stock)
 
     except Exception as e:
-        return make_response(status="error", message=str(e))
+        logger.error(f"Error getting stock info: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
 
 
 @app.route("/getStockTimeline", methods=["GET"])
@@ -355,15 +423,20 @@ def get_favorites():
 
 @app.route("/api/favorites", methods=["POST"])
 def add_favorite():
+    """Add item to user's favorites."""
     try:
         data = request.get_json()
-        user_id = data.get("userId")
-        item_id = data.get("itemId")
-        item_type = data.get("itemType")
-        item_name = data.get("itemName", "")
-
-        if not user_id or not item_id or not item_type:
-            return make_response(status="error", message="userId, itemId, itemType required"), 400
+        
+        # Validate input
+        validated_data, errors = validate_request_data(AddFavoriteSchema, data)
+        if errors:
+            logger.warning(f"Add favorite validation failed: {errors}")
+            return make_response(status="error", message="Validation error", data=errors), 400
+        
+        user_id = validated_data["userId"]
+        item_id = validated_data["itemId"]
+        item_type = validated_data["itemType"]
+        item_name = validated_data.get("itemName", "")
 
         existing = favorites.find_one({
             "userId": user_id,
@@ -372,6 +445,7 @@ def add_favorite():
         })
 
         if existing:
+            logger.info(f"Favorite already exists: {user_id}/{item_type}/{item_id}")
             return make_response(status="success", message="Already in favorites")
 
         fav = {
@@ -379,15 +453,19 @@ def add_favorite():
             "itemId": item_id,
             "itemType": item_type,
             "itemName": item_name,
-            "createdAt": datetime.utcnow()
+            "createdAt": datetime.now(UTC)
         }
 
         favorites.insert_one(fav)
         fav["_id"] = str(fav["_id"])
+        
+        logger.info(f"Favorite added: {user_id}/{item_type}/{item_id}")
         return make_response(status="success", message="Added", data=fav)
 
     except Exception as e:
-        return make_response(status="error", message=str(e))
+        logger.error(f"Error adding favorite: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
 
 
 @app.route("/api/favorites/<item_id>", methods=["DELETE"])
@@ -421,14 +499,19 @@ def add_favorite_rpc():
 
 @app.route("/api/favorites/rpc/remove", methods=["POST"])
 def remove_favorite_rpc():
+    """Remove favorite using RPC-style endpoint."""
     try:
         data = request.get_json()
-        user_id = data.get("userId")
-        item_id = data.get("itemId")
-        item_type = data.get("itemType")
-
-        if not user_id or not item_id or not item_type:
-            return make_response(status="error", message="userId, itemId, itemType required"), 400
+        
+        # Validate input
+        validated_data, errors = validate_request_data(RemoveFavoriteSchema, data)
+        if errors:
+            logger.warning(f"Remove favorite validation failed: {errors}")
+            return make_response(status="error", message="Validation error", data=errors), 400
+        
+        user_id = validated_data["userId"]
+        item_id = validated_data["itemId"]
+        item_type = validated_data["itemType"]
 
         result = favorites.delete_one({
             "userId": user_id,
@@ -437,12 +520,16 @@ def remove_favorite_rpc():
         })
 
         if result.deleted_count == 0:
+            logger.info(f"Favorite not found for removal: {user_id}/{item_type}/{item_id}")
             return make_response(status="error", message="Favorite not found"), 404
 
+        logger.info(f"Favorite removed: {user_id}/{item_type}/{item_id}")
         return make_response(status="success", message="Removed")
 
     except Exception as e:
-        return make_response(status="error", message=str(e))
+        logger.error(f"Error removing favorite: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
 
 @app.route("/api/favorites/stocks", methods=["GET"])
 def get_favorite_stocks():
@@ -512,4 +599,8 @@ def add_cors_headers(response):
 # RUN APP
 # --------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    logger.info("Starting Mutual Fund API v0...")
+    logger.info(f"Environment: {app.config.get('FLASK_ENV', 'development')}")
+    logger.info(f"Debug mode: {app.config.get('DEBUG', False)}")
+    app.run(debug=app.config.get('DEBUG', False))
+
