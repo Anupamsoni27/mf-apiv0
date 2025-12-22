@@ -11,7 +11,7 @@ CORS(app, resources={r"/*": {"origins": ["http://localhost:4200"]}}, supports_cr
 # MONGO CONNECTION
 # --------------------------
 
-client = MongoClient("mongodb+srv://anupamsoni27:Mystuff8358%401@india-01.kwer3ek.mongodb.net/")
+client = MongoClient("mongodb+srv://anupamsoni27:Mystuff8358%401@india-01.kwer3ek.mongodb.net/", tlsAllowInvalidCertificates=True)
 db = client["mf_data"]
 
 fund_holdings = db["fund_holdings_test"]
