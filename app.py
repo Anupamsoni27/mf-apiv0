@@ -639,15 +639,9 @@ def get_favorite_funds():
 
 
 # --------------------------
-# CORS HEADERS
+# CORS is configured via Flask-CORS library above
+# See lines 32-36 for CORS configuration
 # --------------------------
-@app.after_request
-def add_cors_headers(response):
-    response.headers.setdefault("Access-Control-Allow-Origin", "http://localhost:4200")
-    response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-    response.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Authorization")
-    response.headers.setdefault("Access-Control-Allow-Credentials", "true")
-    return response
 
 
 # --------------------------
