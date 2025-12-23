@@ -121,6 +121,7 @@ def root():
         "service": "Mutual Fund API",
         "version": "1.0.0",
         "status": "running",
+        "cors_origins": app_config.CORS_ORIGINS,  # Debug: show CORS config
         "endpoints": {
             "health": "/health",
             "ready": "/ready",
