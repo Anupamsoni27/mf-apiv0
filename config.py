@@ -25,7 +25,10 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     
     # CORS Configuration
-    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:4200').split(',')
+    CORS_ORIGINS = os.getenv(
+        'CORS_ORIGINS', 
+        'http://localhost:4200,https://icy-hill-0f6a2fa00.1.azurestaticapps.net'
+    ).split(',')
     CORS_SUPPORTS_CREDENTIALS = True
     
     # Logging Configuration
