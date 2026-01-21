@@ -27,7 +27,7 @@ class Config:
     # CORS Configuration
     CORS_ORIGINS = os.getenv(
         'CORS_ORIGINS', 
-        'http://localhost:4200,https://icy-hill-0f6a2fa00.1.azurestaticapps.net'
+        'https://mf-ui.onrender.com'
     ).split(',')
     CORS_SUPPORTS_CREDENTIALS = True
     
