@@ -6,3 +6,5 @@ mongomock
 python-dotenv
 marshmallow
 gunicorn
+pandas
+yfinance

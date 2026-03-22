@@ -419,6 +419,54 @@ def get_stock_info():
         return make_response(status="error", message=str(e)), 500
 
 
+@app.route("/getYfinanceStockData", methods=["GET"])
+def get_yfinance_stock_data():
+    """Get stock data from yfinance by stock symbol."""
+    try:
+        import yfinance as yf
+        import pandas as pd
+        
+        symbol = request.args.get("symbol")
+        start_date = request.args.get("start_date", "2025-09-01")
+        end_date = request.args.get("end_date", "2026-03-31")
+        
+        if not symbol:
+            logger.warning("getYfinanceStockData called without symbol")
+            return make_response(status="error", message="symbol required"), 400
+            
+        logger.info(f"Fetching yfinance data for {symbol} from {start_date} to {end_date}")
+        stock = yf.download(symbol, start=start_date, end=end_date)
+        
+        if stock.empty:
+            return make_response(status="error", message="No data found for symbol"), 404
+            
+        stock = stock.reset_index()[["Date", "Close"]]
+        
+        # pandas multi-index handling for yfinance > 0.2.0
+        if isinstance(stock.columns, pd.MultiIndex):
+            stock.columns = [col[0] for col in stock.columns]
+            
+        stock = stock[["Date", "Close"]]
+        stock.columns = ["DATE", "PRICE_ON_DATE"]
+        
+        # Convert date to string
+        stock["DATE"] = stock["DATE"].astype(str)
+        
+        # Handle JSON NaN safely
+        stock = stock.where(pd.notnull(stock), None)
+        
+        records = stock.to_dict(orient="records")
+        
+        # Output info for logs
+        logger.debug(f"Fetched {len(records)} records from yfinance for {symbol}")
+        
+        return make_response(status="success", message="Stock fetched from yfinance", records=records)
+        
+    except Exception as e:
+        logger.error(f"Error getting stock info from yfinance: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
+
 @app.route("/getStockTimeline", methods=["GET"])
 def get_stock_timeline():
     try:
