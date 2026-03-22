@@ -9,8 +9,10 @@ bind = f"0.0.0.0:{os.getenv('PORT', '8000')}"
 backlog = 2048
 
 # Worker Processes
-workers = int(os.getenv('GUNICORN_WORKERS', multiprocessing.cpu_count() * 2 + 1))
-worker_class = 'sync'
+# Render's free/starter tiers have strict memory limits; limit workers to 2.
+workers = int(os.getenv('GUNICORN_WORKERS', '2'))
+threads = int(os.getenv('GUNICORN_THREADS', '4'))
+worker_class = 'gthread'
 worker_connections = 1000
 max_requests = 1000
 max_requests_jitter = 50

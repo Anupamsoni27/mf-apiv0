@@ -8,6 +8,8 @@ from bson import ObjectId
 from flask_cors import CORS
 from datetime import datetime, UTC
 import logging
+import pandas as pd
+import yfinance as yf
 
 # Import configuration and validators
 from config import get_config
@@ -423,9 +425,6 @@ def get_stock_info():
 def get_yfinance_stock_data():
     """Get stock data from yfinance by stock symbol."""
     try:
-        import yfinance as yf
-        import pandas as pd
-        
         symbol = request.args.get("symbol")
         start_date = request.args.get("start_date", "2025-09-01")
         end_date = request.args.get("end_date", "2026-03-31")
