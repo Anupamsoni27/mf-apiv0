@@ -466,6 +466,58 @@ def get_yfinance_stock_data():
         return make_response(status="error", message=str(e)), 500
 
 
+YFINANCE_API_CONTRACT = {
+    "overview": ["symbol", "shortName", "longName", "currency", "exchange", "marketState", "regularMarketPrice", "regularMarketChange", "regularMarketChangePercent", "regularMarketTime", "previousClose", "open"],
+    "price": ["dayLow", "dayHigh", "regularMarketDayLow", "regularMarketDayHigh", "fiftyTwoWeekLow", "fiftyTwoWeekHigh", "fiftyTwoWeekRange", "fiftyTwoWeekChange", "fiftyTwoWeekChangePercent", "SandP52WeekChange", "fiftyDayAverage", "twoHundredDayAverage", "fiftyDayAverageChange", "twoHundredDayAverageChange", "volume", "regularMarketVolume", "averageVolume", "averageVolume10days", "averageDailyVolume10Day", "bid", "ask", "bidSize", "askSize"],
+    "fundamentals": ["marketCap", "enterpriseValue", "floatShares", "sharesOutstanding", "impliedSharesOutstanding", "profitMargins", "grossMargins", "operatingMargins", "revenuePerShare", "returnOnAssets", "returnOnEquity", "beta"],
+    "financials": ["totalRevenue", "grossProfits", "ebitda", "netIncomeToCommon", "freeCashflow", "operatingCashflow", "totalCash", "totalCashPerShare", "totalDebt", "debtToEquity", "earningsGrowth", "revenueGrowth"],
+    "valuation": ["trailingPE", "forwardPE", "priceToBook", "priceToSalesTrailing12Months", "enterpriseToRevenue", "enterpriseToEbitda", "trailingPegRatio", "bookValue", "priceEpsCurrentYear"],
+    "governance": ["auditRisk", "boardRisk", "compensationRisk", "shareHolderRightsRisk", "overallRisk", "governanceEpochDate", "compensationAsOfEpochDate", "heldPercentInsiders", "heldPercentInstitutions"],
+    "analyst": ["recommendationKey", "recommendationMean", "numberOfAnalystOpinions", "targetHighPrice", "targetLowPrice", "targetMeanPrice", "targetMedianPrice", "averageAnalystRating"],
+    "company": ["address1", "address2", "city", "zip", "country", "phone", "fax", "website", "industry", "industryKey", "industryDisp", "sector", "sectorKey", "sectorDisp", "longBusinessSummary", "fullTimeEmployees"]
+}
+
+@app.route("/getYfinanceStocksDetails/<tab>", methods=["GET"])
+def get_yfinance_stocks_details(tab):
+    """Modular endpoint for fetching specific stock data tabs to prevent overfetching."""
+    try:
+        import math
+        
+        if tab not in YFINANCE_API_CONTRACT:
+            return make_response(status="error", message=f"Invalid tab. Available tabs: {', '.join(YFINANCE_API_CONTRACT.keys())}"), 404
+            
+        symbol = request.args.get("symbol")
+        if not symbol:
+            logger.warning(f"getYfinanceStocksDetails/{tab} called without symbol")
+            return make_response(status="error", message="symbol required in query string"), 400
+            
+        logger.info(f"Fetching yfinance {tab} details for {symbol}")
+        ticker = yf.Ticker(symbol)
+        
+        # yfinance `.info` does a network request to load properties
+        info = ticker.info
+        
+        # Handle cases where symbol is invalid or API fails (yfinance usually returns a mostly empty dictionary for bad symbols)
+        if not info or len(info) < 3:
+            return make_response(status="error", message=f"No data found for symbol {symbol}"), 404
+            
+        # Extract only the required fields defined in the JSON contract
+        required_fields = YFINANCE_API_CONTRACT[tab]
+        response_data = {field: info.get(field) for field in required_fields}
+        
+        # Replace NaN/inf with None for valid JSON serialization
+        for k, v in response_data.items():
+            if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                response_data[k] = None
+        
+        return make_response(status="success", message=f"Stock {tab} details fetched", data=response_data)
+        
+    except Exception as e:
+        logger.error(f"Error getting stock {tab} from yfinance: {str(e)}", exc_info=True)
+        return make_response(status="error", message=str(e)), 500
+
+
+
 @app.route("/getStockTimeline", methods=["GET"])
 def get_stock_timeline():
     try:
